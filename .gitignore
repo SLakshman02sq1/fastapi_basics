@@ -1,0 +1,11 @@
+# Python bytecode cache (compiled files)
+__pycache__/
+
+# Hidden configuration or local data directory
+.base/
+
+# Local databases (SQLite, etc.)
+user.db
+
+# Optional: To keep your root directory clean of specific script names
+test.py

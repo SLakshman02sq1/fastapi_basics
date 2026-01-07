@@ -1,0 +1,31 @@
+/project-root
+├── app/
+│   ├── api/
+│   │   ├── v1/
+│   │   │   ├── endpoints/
+│   │   │   │   ├── user.py
+│   │   │   │   └── items.py
+│   │   │   ├── dependencies.py
+│   │   │   └── __init__.py
+│   ├── core/
+│   │   ├── config.py             # Configuration settings (using Pydantic BaseSettings)
+│   │   ├── database.py           # Database connection and session setup
+│   │   └── security.py           # Security utilities, e.g., password hashing
+│   ├── models/                   # Database models (e.g., SQLAlchemy models)
+│   │   ├── user.py
+│   │   └── item.py
+│   ├── schemas/                  # Pydantic models for data validation (DTOs)
+│   │   ├── user.py
+│   │   └── item.py
+│   ├── services/                 # Business logic layer
+│   │   ├── user_service.py
+│   │   └── item_service.py
+│   ├── repositories/             # Data access layer (DAO pattern)
+│   │   ├── user_repository.py
+│   │   └── item_repository.py
+│   ├── main.py                   # The entry point of the FastAPI application
+│   └── utils.py                  # Common utility functions
+├── tests/                        # Unit and integration tests
+├── .env                          # Environment variables
+├── requirements.txt              # Project dependencies
+└── Dockerfile                    # For containerization

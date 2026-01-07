@@ -1,0 +1,290 @@
+Middlewares in FastAPI
+
+A middleware is a piece of code that runs before the request reaches your endpoint and again after response is sent back
+
+Middleware has two jobs:
+
+Run some logic before request reaches the endpoint.
+Run some logic after response leaves the endpoint.
+
+Syntax:
+
+app.add_middleware(MiddlewareClass, **options)
+
+Built-in Middlewares in FastAPI:
+
+1. CORSMiddleware (Cross-Origin Resource Sharing)
+
+When frontend (React, Angular, Vue) and FastAPI backend run on different domains or ports (e.g., localhost:3000 and localhost:8000), browsers block these cross-origin requests for security. CORS Middleware solves this by allowing specific domains to access the API, enabling smooth frontend-backend communication.
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+# Create FastAPI app
+app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  // all domain access
+    allow_credentials=True, // cookies and auth permissions
+    allow_methods=["*"], // http methods permission
+    allow_headers=["*"], // all headers in request
+)
+
+# Define a route
+@app.get("/")
+def home():
+    return {"message": "CORS enabled!"}
+
+2. GZipMiddleware (Response Compression)
+
+When your API needs to send large responses (for example, big JSON datasets) data can take longer to transfer and consume more bandwidth. GZipMiddleware automatically compresses these responses before sending them to the client, making them smaller, faster and more efficient.
+
+from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
+app = FastAPI()
+
+# Adding GZip middleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+@app.get("/large-data")
+def get_data():
+    return {"data": "x" * 2000}  # A large response
+
+3. TrustedHostMiddleware (Restrict Allowed Hosts)
+
+When deployed, FastAPI app may be accessed from many domains or IPs and allowing all hosts is risky. TrustedHostMiddleware fixes this by permitting requests only from trusted hostnames, blocking all others for added security. This helps protect against HTTP Host Header attacks by only allowing requests from a defined list of trusted hosts.
+
+from fastapi import FastAPI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+app = FastAPI()
+
+# Allow only these hosts
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["example.com", "localhost"])
+
+@app.get("/")
+def home():
+    return {"message": "Only trusted hosts can access this!"}
+
+4. HTTPSRedirectMiddleware (Force HTTPS):
+
+When app is deployed, users might access it using plain HTTP, which is not secure. HTTPSRedirectMiddleware solves this by automatically redirecting all HTTP requests to HTTPS, ensuring that all communication between client and server is encrypted and safe. This is especially important in production environments where protecting sensitive data is critical.
+
+from fastapi import FastAPI
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+app = FastAPI()
+
+# Redirect HTTP -> HTTPS
+app.add_middleware(HTTPSRedirectMiddleware)
+
+@app.get("/")
+def home():
+    return {"message": "You are redirected to HTTPS!"}
+
+In local --> Error because local server is only running on HTTP and doesn’t have HTTPS configured but in real production setup HTTPS is enabled and HTTP will be redirected to HTTPS
+
+Middleware in Action
+To understand custom middleware better, let’s look at the order in which it runs during a request and response cycle.
+
+Request path: middlewares are executed in the same order they’re defined (from top to bottom) before request reaches the route handler.
+Response path: once the route sends back a response, middlewares are triggered again, but this time in reverse order (from bottom to top).
+Exceptions: if something goes wrong inside a route, the error flows back through middlewares, giving them a chance to log it, handle it or even transform the response.
+
+Adding Custom Middleware
+
+@app.middleware("http") decorator with async function
+
+example:
+
+@app.middleware("http")
+async def custom_middleware(request: Request, call_next):
+    # Runs before the request reaches the route
+    response = await call_next(request)  
+    # Runs after the route handler sends back a response
+    return response
+
+import time
+from fastapi import FastAPI, Request
+app = FastAPI()
+
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    start_time = time.time()  # Record start time
+    response = await call_next(request)  # Process request
+    process_time = time.time() - start_time  # Calculate duration
+    print(f"Request: {request.method} {request.url} completed in {process_time:.4f} seconds")
+    return response
+
+@app.get("/hello")
+def hello():
+    return {"message": "Hello World"}
+
+Database creation and connection: (sql and nosql)
+
+1. Nosql
+
+Models:
+
+Define Pydantic models to represent the data structures that will be stored in MongoDB. These models will also handle data validation and serialization/deserialization.
+
+from pydantic import BaseModel
+
+class Address(BaseModel):
+    city: str
+    country: str
+
+class Student(BaseModel):
+    name: str
+    age: int
+    address: Address
+
+ MongoDB Connection:
+
+ from pymongo import MongoClient
+
+Connect to MongoDB
+
+client = MongoClient("mongodb://localhost:27017")
+db = client["database_name"]
+students_collection = db["students"]  // A collection is like a table in a traditional SQL database
+
+For CRUD Ops
+
+Use PyMongo's methods (insert_one, find, update_one, delete_one, etc.) to interact with the database.
+
+eg:
+
+@app.post("/students", status_code=201)
+async def create_student(student: Student):
+    result = students_collection.insert_one(student.dict())
+    return {"id": str(result.inserted_id)}
+
+
+@app.get("/students", response_model=list[Student])
+async def list_students(country: str = None, age: int = None):
+    query = {}
+    if country:
+        query["address.country"] = country
+    if age:
+        query["age"] = {"$gte": age}
+    students = list(students_collection.find(query, {"_id": 0}))
+    return students
+
+
+@app.get("/students/{id}", response_model=Student)
+async def get_student(id: str):
+    student = students_collection.find_one({"_id": ObjectId(id)}, {"_id": 0})
+    if student:
+        return student
+    else:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+
+@app.patch("/students/{id}", status_code=204)
+async def update_student(id: str, student: Student):
+    updated_student = student.dict(exclude_unset=True)
+    result = students_collection.update_one(
+        {"_id": ObjectId(id)}, {"$set": updated_student})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+    else:
+        return
+
+
+@app.delete("/students/{id}", status_code=200)
+async def delete_student(id: str):
+    result = students_collection.delete_one({"_id": ObjectId(id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+    else:
+        return {"message": "Student deleted successfully"}
+
+2. Sql Lite
+
+pip install sqlalchemy
+
+# Import necessary modules and classes
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy import create_engine, Column, Integer, String
+import sqlalchemy
+from sqlalchemy.orm import sessionmaker, Session
+from pydantic import BaseModel
+
+FastAPI Instance and SetUp the Database
+
+# FastAPI app instance
+app = FastAPI()
+
+# Database setup
+DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = sqlalchemy.orm.declarative_base() // Base is a declarative base for defining SQLAlchemy models which we use to create our databse model(named Item).
+
+Defining the Database Model
+
+In this step we will create a database model named Item(using sqlalchemy Base model) in our database, we store all our data into this model. The model named Item represents items with an id, name, and description. here id, name and description are data field of model.
+
+class Item(Base):
+    __tablename__ = "items"
+    id = Column(Integer, primary_key = True, index = True)
+    name = Column(String, index = True)
+    description = Column(String)
+
+Database Tables
+
+create a necessary tables in the database based on the defined models.
+
+Base.metadata.create_all(bind_engine)
+
+Dependency for Getting the Database Session
+
+In this step We will define a dependency function (get_db) to get a database session. It yields the database session to be used in API endpoints and ensures that the database session is properly closed after use by API.
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+Pydantic Model for Request Data and Response Data
+
+-- This pydantic model helping in auto validate the input/output data with defined pydantic data model.
+
+# Pydantic model for request data
+class ItemCreate(BaseModel):
+    name:str
+    description:str
+
+# Pydantic model for response data
+class ItemShow(BaseModel):
+    id:int
+    name:str
+    description:str
+
+API ENDPOINTS:
+
+Create
+
+@app.post("/items/", response_model = ItemShow)
+
+async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+    db_item = Item(**item.model_dump())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+Read an Item by ID
+
+# API endpoint to read an item by ID
+
+@app.get("/items/{item_id}", response_model=ItemResponse)
+
+async def read_item(item_id: int, db: Session = Depends(get_db)):
+    db_item = db.query(Item).filter(Item.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return db_item

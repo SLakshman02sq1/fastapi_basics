@@ -1,0 +1,41 @@
+/app
+├── main.py             # Application entry point, initializes FastAPI app and includes routers
+├── core/               # Core configurations, security, and dependencies
+│   ├── config.py       # Pydantic BaseSettings for environment variables
+│   ├── security.py     # Password hashing, JWT token creation, OAuth2 logic
+│   └── dependencies.py # Reusable dependencies (e.g., database session generator)
+├── api/                # API routers and endpoint definitions
+│   └── v1/             # API versioning (plan for evolution from day one)
+│       ├── endpoints/
+│       │   ├── users.py      # Endpoints for user CRUD operations
+│       │   └── __init__.py
+│       └── router.py   # Aggregates v1 endpoints
+├── models/             # Database models (SQLAlchemy, SQLModel, etc.)
+│   ├── database.py     # Base declarative model and engine/session setup
+│   └── user.py         # SQLAlchemy/ORM User model
+├── schemas/            # Pydantic models for data validation/serialization
+│   └── user.py         # UserCreate, UserUpdate, UserResponse schemas
+├── services/           # Business logic
+│   └── user_service.py # Logic for user management (calls repository/CRUD methods)
+├── repositories/       # Data access layer (CRUD operations)
+│   └── user_repository.py # Functions for interacting directly with the database
+└── tests/              # Unit and integration tests
+    ├── unit/
+    └── integration/
+
+
+----------------------------------------
+
+user_management/
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # Entry point: initializes FastAPI and includes routers
+│   ├── database.py          # SQLAlchemy engine and session configuration
+│   ├── models.py            # SQLAlchemy database models (Table schemas)
+│   ├── schemas.py           # Pydantic models (Data validation & Response shapes)
+│   ├── crud.py              # Database create/read/update/delete logic
+│   └── routers/
+│       ├── __init__.py
+│       └── users.py         # API endpoints for user operations
+├── requirements.txt
+└── users.db                 # Created automatically by SQLite
